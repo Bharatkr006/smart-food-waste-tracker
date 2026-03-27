@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 
 const NgoDashboard = () => {
   const { currentUser, userData } = useAuth();
-  const [listings, setListings] = useState([]);
+  const [listings, setListings] = useState({ available: [], myAccepted: [] });
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [toast, setToast] = useState(null);
@@ -42,7 +42,10 @@ const NgoDashboard = () => {
       return;
     }
     
-    const q = query(collection(db, 'listings'), where('status', '==', 'Available'));
+    const q = query(
+      collection(db, 'listings'), 
+      where('status', 'in', ['Available', 'Accepted'])
+    );
     const unsubscribeSnap = onSnapshot(q, (querySnapshot) => {
       const fetchedListings = [];
       const currentIds = [];
@@ -79,20 +82,35 @@ const NgoDashboard = () => {
       }
       knownIds.current = currentIds;
 
-      // Multi-level sorting: 1. Priority (High > Medium > Low), 2. Distance
+      // Filter and sort
+      // 1. Current NGO's accepted items
+      // 2. Available items
+      const myAccepted = fetchedListings.filter(l => l.status === 'Accepted' && l.ngoId === currentUser.uid);
+      const available = fetchedListings.filter(l => l.status === 'Available');
+
       const priorityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
       
-      fetchedListings.sort((a, b) => {
+      const sortFunction = (a, b) => {
+        // First sort by Priority
         const pA = priorityMap[a.priority] || 0;
         const pB = priorityMap[b.priority] || 0;
         if (pA !== pB) return pB - pA;
         
+        // Then sort by Created Time (Newest First)
+        const tA = a.createdAt?.toMillis() || 0;
+        const tB = b.createdAt?.toMillis() || 0;
+        if (tA !== tB) return tB - tA;
+        
+        // Finally sort by distance
         if (a.distance === null) return 1;
         if (b.distance === null) return -1;
         return a.distance - b.distance;
-      });
+      };
 
-      setListings(fetchedListings);
+      myAccepted.sort(sortFunction);
+      available.sort(sortFunction);
+
+      setListings({ available, myAccepted });
       setLoading(false);
     }, (err) => {
       console.error("NGO Dashboard sync error:", err);
@@ -161,9 +179,9 @@ const NgoDashboard = () => {
         
         <h2 style={{marginBottom: '1.25rem', fontSize: '1.25rem', fontWeight: '600'}}>Available Food Pickups</h2>
         
-        {listings.length > 0 && <MapComponent listings={listings} />}
+        {listings.available.length > 0 && <MapComponent listings={listings.available} />}
         
-        {listings.length === 0 ? (
+        {listings.available.length === 0 ? (
            <div style={{
              textAlign: 'center', 
              padding: '4rem 2rem', 
@@ -177,7 +195,7 @@ const NgoDashboard = () => {
            </div>
         ) : (
           <div className="card-grid">
-            {listings.map((item) => {
+            {listings.available.map((item) => {
               const urgency = getUrgencyData(item.expiryTime);
               
               return (
@@ -230,6 +248,51 @@ const NgoDashboard = () => {
                 </Card>
               );
             })}
+          </div>
+        )}
+
+        {listings.myAccepted.length > 0 && (
+          <div style={{marginTop: '3rem'}}>
+            <h2 style={{marginBottom: '1.25rem', fontSize: '1.25rem', fontWeight: '600', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+              ✅ My Accepted Pickups
+            </h2>
+            <div className="card-grid">
+              {listings.myAccepted.map((item) => {
+                const urgency = getUrgencyData(item.expiryTime);
+                return (
+                  <Card 
+                    key={item.id}
+                    title={item.title}
+                    meta={`From: ${item.hostelName} • ${item.locationName || 'Main Campus'}`}
+                    badge="Accepted" 
+                    badgeType="success"
+                    topBadge={item.priority ? `📍 Active Pickup` : null}
+                    topBadgeType="primary"
+                    timer={urgency.expired ? "Pickup Expired" : urgency.label}
+                    timerType={urgency.expired ? "danger" : urgency.type}
+                  >
+                     <div style={{backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', padding: '1rem', borderRadius: 'var(--radius-sm)', marginBottom: '1rem'}}>
+                        <p style={{fontSize: '0.85rem', color: '#065f46', fontWeight: '500'}}>You have accepted this pickup. Please reach the location soon!</p>
+                        {item.location && (
+                          <a 
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${item.location.lat},${item.location.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{marginTop: '0.75rem', width: '100%', fontSize: '0.8rem', padding: '10px 0'}}
+                          >
+                            Open in Google Maps 🧭
+                          </a>
+                        )}
+                     </div>
+                     <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderTop: '1px solid var(--border)'}}>
+                        <span style={{color: 'var(--text-muted)', fontSize: '0.8rem'}}>Status</span>
+                        <span style={{fontWeight: '600', fontSize: '0.85rem', color: 'var(--primary)'}}>Accepted</span>
+                     </div>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
