@@ -1,0 +1,258 @@
+import { useEffect, useState, useRef } from 'react';
+import { db } from '../config/firebase';
+import { collection, query, where, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
+import Card from '../components/Card';
+import MapComponent from '../components/Map';
+import { useAuth } from '../context/AuthContext';
+
+const NgoDashboard = () => {
+  const { currentUser, userData } = useAuth();
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [toast, setToast] = useState(null);
+  const knownIds = useRef([]);
+  const navigate = useNavigate();
+
+  // Update current time every minute for the countdown
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+  
+  // Haversine formula to calculate distance... (remains same)
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const deg2rad = (deg) => deg * (Math.PI / 180);
+
+  useEffect(() => {
+    if (!currentUser || !userData) {
+      // If user is loaded but data is missing, we might still be loading or unauthorized
+      return;
+    }
+    
+    const q = query(collection(db, 'listings'), where('status', '==', 'Available'));
+    const unsubscribeSnap = onSnapshot(q, (querySnapshot) => {
+      const fetchedListings = [];
+      const currentIds = [];
+      
+      querySnapshot.forEach((listingDoc) => {
+        const listingData = listingDoc.data();
+        let distance = null;
+        
+        if (userData.location && listingData.location) {
+          distance = calculateDistance(
+            userData.location.lat, 
+            userData.location.lng, 
+            listingData.location.lat, 
+            listingData.location.lng
+          );
+        }
+        
+        const listingWithId = { 
+          id: listingDoc.id, 
+          ...listingData,
+          distance: distance
+        };
+        fetchedListings.push(listingWithId);
+        currentIds.push(listingDoc.id);
+      });
+
+      // Logic to trigger toast for NEW listings (not on initial load)
+      if (knownIds.current.length > 0) {
+        const newItems = fetchedListings.filter(item => !knownIds.current.includes(item.id));
+        if (newItems.length > 0) {
+          setToast(newItems[0]);
+          setTimeout(() => setToast(null), 5000);
+        }
+      }
+      knownIds.current = currentIds;
+
+      // Multi-level sorting: 1. Priority (High > Medium > Low), 2. Distance
+      const priorityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
+      
+      fetchedListings.sort((a, b) => {
+        const pA = priorityMap[a.priority] || 0;
+        const pB = priorityMap[b.priority] || 0;
+        if (pA !== pB) return pB - pA;
+        
+        if (a.distance === null) return 1;
+        if (b.distance === null) return -1;
+        return a.distance - b.distance;
+      });
+
+      setListings(fetchedListings);
+      setLoading(false);
+    }, (err) => {
+      console.error("NGO Dashboard sync error:", err);
+      setLoading(false);
+    });
+
+    return () => {
+      if (unsubscribeSnap) unsubscribeSnap();
+    };
+  }, [currentUser, userData]);
+
+  const getUrgencyData = (expiryTime) => {
+    if (!expiryTime) return { label: "", expired: false, type: "success" };
+    
+    const expiry = new Date(expiryTime);
+    const diffMs = expiry - currentTime;
+    
+    if (diffMs <= 0) {
+      return { label: "Expired", expired: true, type: "danger" };
+    }
+    
+    const diffMins = Math.floor(diffMs / 60000);
+    const h = Math.floor(diffMins / 60);
+    const m = diffMins % 60;
+    
+    return {
+      label: `Expires in ${h > 0 ? h + 'h ' : ''}${m}m`,
+      expired: false,
+      type: h < 1 ? "warning" : "success"
+    };
+  };
+
+  const handleAccept = async (listingId) => {
+    try {
+      const listingRef = doc(db, 'listings', listingId);
+      await updateDoc(listingRef, {
+        status: 'Accepted',
+        ngoId: currentUser.uid,
+        ngoName: userData.name
+      });
+    } catch (error) {
+      console.error("Error accepting listing", error);
+      alert("Failed to accept pickup. Please try again.");
+    }
+  };
+
+  const formatTime = (timestamp) => {
+    if (!timestamp) return 'Just now';
+    const date = timestamp.toDate();
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' on ' + date.toLocaleDateString();
+  };
+
+  if (loading) {
+    return <div style={{textAlign: 'center', padding: '3rem', color: 'var(--text-muted)'}}>Loading dashboard...</div>;
+  }
+
+  return (
+    <div className="dashboard-layout">
+      <div className="container page-content">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">NGO Dashboard</h1>
+            <p className="page-subtitle">Welcome back, {userData?.name}</p>
+          </div>
+        </div>
+        
+        <h2 style={{marginBottom: '1.25rem', fontSize: '1.25rem', fontWeight: '600'}}>Available Food Pickups</h2>
+        
+        {listings.length > 0 && <MapComponent listings={listings} />}
+        
+        {listings.length === 0 ? (
+           <div style={{
+             textAlign: 'center', 
+             padding: '4rem 2rem', 
+             backgroundColor: 'var(--surface)',
+             borderRadius: 'var(--radius-md)',
+             color: 'var(--text-muted)',
+             border: '1px dashed var(--border)'
+           }}>
+              <h3 style={{fontSize: '1.15rem', marginBottom: '0.5rem', color: 'var(--text-main)', fontWeight: '500'}}>No Listings Available</h3>
+              <p style={{fontSize: '0.95rem'}}>There are currently no active surplus food listings. Please check back later.</p>
+           </div>
+        ) : (
+          <div className="card-grid">
+            {listings.map((item) => {
+              const urgency = getUrgencyData(item.expiryTime);
+              
+              return (
+                <Card 
+                  key={item.id}
+                  title={item.title}
+                  meta={`Posted by: ${item.hostelName} • ${item.distance ? item.distance.toFixed(1) + ' km away' : 'Location Not Shared'}`}
+                  badge={urgency.expired ? "Expired" : "Available"} 
+                  badgeType={urgency.expired ? "danger" : "success"}
+                  topBadge={item.priority ? `${item.priority === 'High' ? '🔴' : item.priority === 'Medium' ? '🟡' : '🟢'} ${item.priority} Priority` : null}
+                  topBadgeType={item.priority === 'High' ? 'danger' : item.priority === 'Medium' ? 'warning' : 'success'}
+                  timer={urgency.label}
+                  timerType={urgency.type}
+                >
+                  <div style={{backgroundColor: 'var(--bg-color)', border: '1px solid var(--border)', padding: '1rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.25rem'}}>
+                     <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem'}}>
+                       <span style={{color: 'var(--text-muted)', fontSize: '0.85rem'}}>Quantity</span>
+                       <span style={{fontWeight: '500', fontSize: '0.9rem'}}>{item.quantity} portions</span>
+                     </div>
+                     <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', alignItems: 'flex-start'}}>
+                        <span style={{color: 'var(--text-muted)', fontSize: '0.85rem'}}>Location</span>
+                        <div style={{textAlign: 'right'}}>
+                          <div style={{fontWeight: '500', fontSize: '0.9rem'}}>{item.locationName || 'Main Campus'}</div>
+                          {item.location && (
+                            <a 
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${item.location.lat},${item.location.lng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{fontSize: '0.75rem', color: 'var(--primary)', fontWeight: '600', textDecoration: 'underline'}}
+                            >
+                              Get Directions (Google Maps) 🗺️
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                     <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                       <span style={{color: 'var(--text-muted)', fontSize: '0.85rem'}}>Time</span>
+                       <span style={{fontWeight: '500', fontSize: '0.9rem'}}>{formatTime(item.createdAt)}</span>
+                     </div>
+                  </div>
+
+                  <button 
+                    className="btn btn-primary" 
+                    style={{width: '100%'}}
+                    onClick={() => handleAccept(item.id)}
+                    disabled={urgency.expired}
+                  >
+                    {urgency.expired ? "Pickup Unavailable" : "Accept Pickup"}
+                  </button>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {/* Notifications */}
+      <div className="toast-container">
+        {toast && (
+          <div className="toast" key={toast.id}>
+            <div className="toast-icon">🥘</div>
+            <div className="toast-content">
+              <h4>New Food Alert!</h4>
+              <p>{toast.hostelName} just posted: <b>{toast.title}</b></p>
+            </div>
+            <button 
+              onClick={() => setToast(null)} 
+              style={{ marginLeft: 'auto', fontSize: '1.2rem', color: 'var(--text-muted)' }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default NgoDashboard;
