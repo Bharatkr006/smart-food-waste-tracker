@@ -1,18 +1,19 @@
 import { useEffect, useState, useRef } from 'react';
 import { db } from '../config/firebase';
-import { collection, query, where, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, updateDoc, doc, getDocs } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import MapComponent from '../components/Map';
 import { useAuth } from '../context/AuthContext';
+import { requestNotificationPermission, sendNotification } from '../utils/notifications.jsx';
 
 const NgoDashboard = () => {
   const { currentUser, userData } = useAuth();
   const [listings, setListings] = useState({ available: [], myAccepted: [] });
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [toast, setToast] = useState(null);
   const knownIds = useRef([]);
+  const previousAcceptedRef = useRef(new Map());
   const navigate = useNavigate();
 
   // Update current time every minute for the countdown
@@ -41,6 +42,8 @@ const NgoDashboard = () => {
       // If user is loaded but data is missing, we might still be loading or unauthorized
       return;
     }
+
+    requestNotificationPermission();
     
     const q = query(
       collection(db, 'listings'), 
@@ -74,10 +77,10 @@ const NgoDashboard = () => {
 
       // Logic to trigger toast for NEW listings (not on initial load)
       if (knownIds.current.length > 0) {
-        const newItems = fetchedListings.filter(item => !knownIds.current.includes(item.id));
+        const newItems = fetchedListings.filter(item => !knownIds.current.includes(item.id) && item.status === 'Available');
         if (newItems.length > 0) {
-          setToast(newItems[0]);
-          setTimeout(() => setToast(null), 5000);
+          const newTip = newItems[0];
+          sendNotification("New Food Alert! 🥘", `${newTip.hostelName} just posted: ${newTip.title}`);
         }
       }
       knownIds.current = currentIds;
@@ -87,6 +90,21 @@ const NgoDashboard = () => {
       // 2. Available items
       const myAccepted = fetchedListings.filter(l => l.status === 'Accepted' && l.ngoId === currentUser.uid);
       const available = fetchedListings.filter(l => l.status === 'Available');
+
+      const prevAcceptedMap = previousAcceptedRef.current;
+      if (prevAcceptedMap.size > 0) {
+        prevAcceptedMap.forEach((prevItem, id) => {
+          if (!myAccepted.some(l => l.id === id)) {
+            // It was accepted, now it's gone
+            sendNotification("Pickup Completed! ✅", `The pickup for ${prevItem.title} from ${prevItem.hostelName} is complete.`);
+          }
+        });
+      }
+
+      // Update ref map
+      const newAcceptedMap = new Map();
+      myAccepted.forEach(l => newAcceptedMap.set(l.id, l));
+      previousAcceptedRef.current = newAcceptedMap;
 
       const priorityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
       
@@ -143,6 +161,13 @@ const NgoDashboard = () => {
     };
   };
 
+  const getDynamicPriority = (quantity) => {
+    const qty = parseInt(quantity, 10) || 0;
+    if (qty >= 20) return 'High';
+    if (qty >= 10) return 'Medium';
+    return 'Low';
+  };
+
   const handleAccept = async (listingId) => {
     try {
       const listingRef = doc(db, 'listings', listingId);
@@ -157,6 +182,25 @@ const NgoDashboard = () => {
     }
   };
 
+  const handlePickedUp = async (pickup) => {
+    try {
+      const listingRef = doc(db, 'listings', pickup.id);
+      await updateDoc(listingRef, {
+        status: 'Picked Up'
+      });
+
+      // Also update corresponding food log to accurately reflect UI
+      const qLogs = query(collection(db, 'foodLogs'), where('hostelId', '==', pickup.hostelId), where('title', '==', pickup.title));
+      const snap = await getDocs(qLogs);
+      snap.forEach(async (logDoc) => {
+        await updateDoc(logDoc.ref, { status: 'picked-up' });
+      });
+    } catch (error) {
+      console.error("Error marking as picked up:", error);
+      alert("Failed to update status. Please try again.");
+    }
+  };
+
   const formatTime = (timestamp) => {
     if (!timestamp) return 'Just now';
     const date = timestamp.toDate();
@@ -166,6 +210,8 @@ const NgoDashboard = () => {
   if (loading) {
     return <div style={{textAlign: 'center', padding: '3rem', color: 'var(--text-muted)'}}>Loading dashboard...</div>;
   }
+
+  const visibleAvailable = listings.available.filter(item => !getUrgencyData(item.expiryTime).expired);
 
   return (
     <div className="dashboard-layout">
@@ -179,9 +225,9 @@ const NgoDashboard = () => {
         
         <h2 style={{marginBottom: '1.25rem', fontSize: '1.25rem', fontWeight: '600'}}>Available Food Pickups</h2>
         
-        {listings.available.length > 0 && <MapComponent listings={listings.available} />}
+        {visibleAvailable.length > 0 && <MapComponent listings={visibleAvailable} />}
         
-        {listings.available.length === 0 ? (
+        {visibleAvailable.length === 0 ? (
            <div style={{
              textAlign: 'center', 
              padding: '4rem 2rem', 
@@ -195,7 +241,7 @@ const NgoDashboard = () => {
            </div>
         ) : (
           <div className="card-grid">
-            {listings.available.map((item) => {
+            {visibleAvailable.map((item) => {
               const urgency = getUrgencyData(item.expiryTime);
               
               return (
@@ -205,8 +251,8 @@ const NgoDashboard = () => {
                   meta={`Posted by: ${item.hostelName} • ${item.distance ? item.distance.toFixed(1) + ' km away' : 'Location Not Shared'}`}
                   badge={urgency.expired ? "Expired" : "Available"} 
                   badgeType={urgency.expired ? "danger" : "success"}
-                  topBadge={item.priority ? `${item.priority === 'High' ? '🔴' : item.priority === 'Medium' ? '🟡' : '🟢'} ${item.priority} Priority` : null}
-                  topBadgeType={item.priority === 'High' ? 'danger' : item.priority === 'Medium' ? 'warning' : 'success'}
+                  topBadge={`${getDynamicPriority(item.quantity) === 'High' ? '🔴' : getDynamicPriority(item.quantity) === 'Medium' ? '🟡' : '🟢'} ${getDynamicPriority(item.quantity)} Priority`}
+                  topBadgeType={getDynamicPriority(item.quantity) === 'High' ? 'danger' : getDynamicPriority(item.quantity) === 'Medium' ? 'warning' : 'success'}
                   timer={urgency.label}
                   timerType={urgency.type}
                 >
@@ -266,7 +312,7 @@ const NgoDashboard = () => {
                     meta={`From: ${item.hostelName} • ${item.locationName || 'Main Campus'}`}
                     badge="Accepted" 
                     badgeType="success"
-                    topBadge={item.priority ? `📍 Active Pickup` : null}
+                    topBadge={`📍 Active Pickup (${getDynamicPriority(item.quantity)} Priority)`}
                     topBadgeType="primary"
                     timer={urgency.expired ? "Pickup Expired" : urgency.label}
                     timerType={urgency.expired ? "danger" : urgency.type}
@@ -285,32 +331,23 @@ const NgoDashboard = () => {
                           </a>
                         )}
                      </div>
-                     <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderTop: '1px solid var(--border)'}}>
-                        <span style={{color: 'var(--text-muted)', fontSize: '0.8rem'}}>Status</span>
-                        <span style={{fontWeight: '600', fontSize: '0.85rem', color: 'var(--primary)'}}>Accepted</span>
+                     <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', borderTop: '1px solid var(--border)'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                           <span style={{color: 'var(--text-muted)', fontSize: '0.8rem'}}>Status</span>
+                           <span style={{fontWeight: '600', fontSize: '0.85rem', color: 'var(--primary)'}}>Accepted</span>
+                        </div>
+                        <button 
+                          onClick={() => handlePickedUp(item)}
+                          className="btn btn-primary"
+                          style={{padding: '6px 14px', fontSize: '0.8rem', borderRadius: '4px'}}
+                        >
+                          Mark Picked Up ✓
+                        </button>
                      </div>
                   </Card>
                 );
               })}
             </div>
-          </div>
-        )}
-      </div>
-      {/* Notifications */}
-      <div className="toast-container">
-        {toast && (
-          <div className="toast" key={toast.id}>
-            <div className="toast-icon">🥘</div>
-            <div className="toast-content">
-              <h4>New Food Alert!</h4>
-              <p>{toast.hostelName} just posted: <b>{toast.title}</b></p>
-            </div>
-            <button 
-              onClick={() => setToast(null)} 
-              style={{ marginLeft: 'auto', fontSize: '1.2rem', color: 'var(--text-muted)' }}
-            >
-              ×
-            </button>
           </div>
         )}
       </div>

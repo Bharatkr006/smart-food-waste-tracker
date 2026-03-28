@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../config/firebase';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 const Navbar = () => {
   const { currentUser: user, userData } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -18,14 +19,33 @@ const Navbar = () => {
 
   const role = userData?.role;
   const dashboardLink = role === 'ngo' ? '/ngo-dashboard' : '/hostel-dashboard';
+  const isHostelDashboard = location.pathname.startsWith('/hostel-dashboard');
+
+  const toggleSidebar = () => {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.classList.toggle('open');
+  };
 
   return (
     <nav className="navbar">
       <div className="container navbar-content">
-        <Link to="/" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '1.5rem' }}>🥘</span>
-          <span>Smart Food Waste Tracker</span>
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Mobile sidebar toggle - only on hostel dashboard */}
+          {user && role === 'hostel' && isHostelDashboard && (
+            <button
+              onClick={toggleSidebar}
+              className="sidebar-toggle"
+              aria-label="Toggle sidebar"
+              id="sidebar-toggle-btn"
+            >
+              ☰
+            </button>
+          )}
+          <Link to="/" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img src="/logo.png?v=2" alt="Logo" style={{ height: '32px', width: '32px', objectFit: 'contain' }} />
+            <span>Smart Food Waste Tracker</span>
+          </Link>
+        </div>
         <ul className="navbar-nav">
           {user ? (
             <>

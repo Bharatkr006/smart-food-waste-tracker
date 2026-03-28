@@ -44,7 +44,8 @@ const Login = () => {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-header">
+        <div className="auth-header" style={{ textAlign: 'center' }}>
+          <img src="/logo.png?v=2" alt="Smart Food Waste Tracker" style={{ width: '80px', height: '80px', objectFit: 'contain', marginBottom: '1rem' }} />
           <h1>Welcome Back</h1>
           <p>Sign in to your account</p>
         </div>
