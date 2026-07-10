@@ -1,11 +1,25 @@
 import { useEffect, useState, useRef } from 'react';
 import { db } from '../config/firebase';
 import { collection, query, where, onSnapshot, updateDoc, doc, getDocs } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import MapComponent from '../components/Map';
 import { useAuth } from '../context/AuthContext';
 import { requestNotificationPermission, sendNotification } from '../utils/notifications.jsx';
+
+// Haversine formula to calculate distance
+const deg2rad = (deg) => deg * (Math.PI / 180);
+
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
 const NgoDashboard = () => {
   const { currentUser, userData } = useAuth();
@@ -14,32 +28,20 @@ const NgoDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const knownIds = useRef([]);
   const previousAcceptedRef = useRef(new Map());
-  const navigate = useNavigate();
 
   // Update current time every minute for the countdown
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
-  
-  // Haversine formula to calculate distance... (remains same)
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // km
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a = 
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const deg2rad = (deg) => deg * (Math.PI / 180);
 
   useEffect(() => {
-    if (!currentUser || !userData) {
-      // If user is loaded but data is missing, we might still be loading or unauthorized
+    if (!currentUser) {
+      Promise.resolve().then(() => setLoading(false));
+      return;
+    }
+    if (!userData) {
+      // If user is logged in but profile data is still loading, wait
       return;
     }
 
@@ -190,11 +192,17 @@ const NgoDashboard = () => {
       });
 
       // Also update corresponding food log to accurately reflect UI
-      const qLogs = query(collection(db, 'foodLogs'), where('hostelId', '==', pickup.hostelId), where('title', '==', pickup.title));
-      const snap = await getDocs(qLogs);
-      snap.forEach(async (logDoc) => {
-        await updateDoc(logDoc.ref, { status: 'picked-up' });
-      });
+      if (pickup.logId) {
+        const logRef = doc(db, 'foodLogs', pickup.logId);
+        await updateDoc(logRef, { status: 'picked-up' });
+      } else {
+        // Fallback for legacy listings without logId
+        const qLogs = query(collection(db, 'foodLogs'), where('hostelId', '==', pickup.hostelId), where('title', '==', pickup.title));
+        const snap = await getDocs(qLogs);
+        snap.forEach(async (logDoc) => {
+          await updateDoc(logDoc.ref, { status: 'picked-up' });
+        });
+      }
     } catch (error) {
       console.error("Error marking as picked up:", error);
       alert("Failed to update status. Please try again.");

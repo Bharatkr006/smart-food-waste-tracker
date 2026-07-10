@@ -21,11 +21,17 @@ const HostelDashboard = () => {
       });
 
       // Also update corresponding food log to accurately reflect UI
-      const qLogs = query(collection(db, 'foodLogs'), where('hostelId', '==', pickup.hostelId), where('title', '==', pickup.title));
-      const snap = await getDocs(qLogs);
-      snap.forEach(async (logDoc) => {
-        await updateDoc(logDoc.ref, { status: 'picked-up' });
-      });
+      if (pickup.logId) {
+        const logRef = doc(db, 'foodLogs', pickup.logId);
+        await updateDoc(logRef, { status: 'picked-up' });
+      } else {
+        // Fallback for legacy listings without logId
+        const qLogs = query(collection(db, 'foodLogs'), where('hostelId', '==', pickup.hostelId), where('title', '==', pickup.title));
+        const snap = await getDocs(qLogs);
+        snap.forEach(async (logDoc) => {
+          await updateDoc(logDoc.ref, { status: 'picked-up' });
+        });
+      }
     } catch (error) {
       console.error("Error updating status:", error);
       alert("Failed to update status. Please try again.");

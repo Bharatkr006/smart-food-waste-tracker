@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { db } from '../config/firebase';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
@@ -18,7 +19,7 @@ export const HostelDataProvider = ({ children }) => {
 
   useEffect(() => {
     if (!currentUser) {
-      setLoading(false);
+      Promise.resolve().then(() => setLoading(false));
       return;
     }
 
@@ -118,7 +119,7 @@ export const HostelDataProvider = ({ children }) => {
     const fullTitle = `${mealType} - ${foodItem}`;
 
     // 1. Save to foodLogs (Always)
-    await addDoc(collection(db, 'foodLogs'), {
+    const logDocRef = await addDoc(collection(db, 'foodLogs'), {
       hostelId: currentUser.uid,
       hostelName: userData?.name || 'My Hostel',
       title: fullTitle,
@@ -141,7 +142,8 @@ export const HostelDataProvider = ({ children }) => {
         status: 'Available',
         priority,
         expiryTime: expiryTime.toISOString(),
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        logId: logDocRef.id
       });
     }
 
@@ -175,7 +177,8 @@ export const HostelDataProvider = ({ children }) => {
       status: 'Available',
       priority,
       expiryTime: expiryTime.toISOString(),
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      logId: log.id
     });
 
     // Update log status

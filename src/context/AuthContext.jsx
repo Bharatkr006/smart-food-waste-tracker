@@ -1,7 +1,8 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -13,23 +14,38 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeDoc = null;
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         setCurrentUser(user);
-        // Fetch user data from Firestore
+        // Subscribe to user data from Firestore in real-time
         const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setUserData(docSnap.data());
-        }
+        unsubscribeDoc = onSnapshot(docRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setUserData(docSnap.data());
+          }
+          setLoading(false);
+        }, (err) => {
+          console.error("Error loading user profile:", err);
+          setLoading(false);
+        });
       } else {
         setCurrentUser(null);
         setUserData(null);
+        if (unsubscribeDoc) {
+          unsubscribeDoc();
+          unsubscribeDoc = null;
+        }
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeDoc) {
+        unsubscribeDoc();
+      }
+    };
   }, []);
 
   const updateUser = async (newData) => {
