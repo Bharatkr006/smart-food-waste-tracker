@@ -6,7 +6,10 @@ const HostelLayout = () => {
   const { userData } = useAuth();
 
   const navItems = [
-    { to: '/hostel-dashboard', icon: '📊', label: 'Analytics', end: true },
+    { to: '/hostel-dashboard', icon: '🏠', label: 'Overview', end: true },
+    { to: '/hostel-dashboard/analytics', icon: '📊', label: 'Analytics' },
+    { to: '/hostel-dashboard/actions', icon: '⚡', label: 'AI Actions' },
+    { to: '/hostel-dashboard/impact', icon: '🌱', label: 'Impact & ESG' },
     { to: '/hostel-dashboard/insights', icon: '✨', label: 'AI Insights' },
     { to: '/hostel-dashboard/logs', icon: '📋', label: 'Food Logs' },
   ];

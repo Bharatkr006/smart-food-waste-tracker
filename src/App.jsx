@@ -4,6 +4,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import HostelDashboard from './pages/HostelDashboard';
+import Analytics from './pages/Analytics';
+import Actions from './pages/Actions';
+import ImpactDashboard from './pages/ImpactDashboard';
 import AIInsights from './pages/AIInsights';
 import FoodLogs from './pages/FoodLogs';
 import NgoDashboard from './pages/NgoDashboard';
@@ -11,6 +14,24 @@ import Navbar from './components/Navbar';
 import HostelLayout from './components/HostelLayout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { isFirebaseConfigured } from './config/firebase';
+
+function FirebaseMissingBanner() {
+  if (isFirebaseConfigured) return null;
+  return (
+    <div style={{
+      backgroundColor: '#fff3cd',
+      color: '#856404',
+      padding: '12px 20px',
+      borderBottom: '1px solid #ffeeba',
+      textAlign: 'center',
+      fontSize: '0.9rem',
+      fontWeight: '500'
+    }}>
+      ⚙️ <strong>Firebase Configuration Required:</strong> To enable login, registration, and live data syncing, create a <code>.env.local</code> file in your project root using <code>.env.example</code>.
+    </div>
+  );
+}
 
 function AppRoutes() {
   const { currentUser, userData, loading } = useAuth();
@@ -37,6 +58,9 @@ function AppRoutes() {
         }
       >
         <Route index element={<HostelDashboard />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="actions" element={<Actions />} />
+        <Route path="impact" element={<ImpactDashboard />} />
         <Route path="insights" element={<AIInsights />} />
         <Route path="logs" element={<FoodLogs />} />
       </Route>
@@ -66,6 +90,7 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="app-container">
+          <FirebaseMissingBanner />
           <Toaster />
           <Navbar />
           <AppRoutes />
@@ -76,3 +101,4 @@ function App() {
 }
 
 export default App;
+

@@ -1563,3 +1563,33 @@ textarea:focus {
     gap: 1rem;
   }
 }
+
+/* ==========================================================================
+   WASTE INTELLIGENCE, AI ACTIONS & IMPACT HUB STYLES
+   ========================================================================== */
+
+.action-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.action-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.filter-bar select:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.kpi-card {
+  padding: 1.25rem;
+  background-color: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-1px);
+}

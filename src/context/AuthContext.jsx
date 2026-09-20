@@ -14,6 +14,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth || !db) {
+      setLoading(false);
+      return;
+    }
+
     let unsubscribeDoc = null;
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {

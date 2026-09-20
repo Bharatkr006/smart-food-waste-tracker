@@ -224,10 +224,32 @@ const NgoDashboard = () => {
   return (
     <div className="dashboard-layout">
       <div className="container page-content">
-        <div className="page-header">
+        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 className="page-title">NGO Dashboard</h1>
-            <p className="page-subtitle">Welcome back, {userData?.name}</p>
+            <h1 className="page-title">NGO Food Rescue Portal</h1>
+            <p className="page-subtitle">Welcome back, {userData?.name || 'Partner NGO'}</p>
+          </div>
+        </div>
+
+        {/* NGO Rescue Impact Quick Bar */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #10b981' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>ACTIVE CLAIMED PICKUPS</span>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#10b981', marginTop: '4px' }}>
+              {listings.myAccepted.length}
+            </div>
+          </div>
+          <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #3b82f6' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>SURPLUS AVAILABLE NEARBY</span>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#3b82f6', marginTop: '4px' }}>
+              {visibleAvailable.length} listings
+            </div>
+          </div>
+          <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #8b5cf6' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>TOTAL PORTIONS AVAILABLE</span>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#8b5cf6', marginTop: '4px' }}>
+              {visibleAvailable.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)} meals
+            </div>
           </div>
         </div>
         

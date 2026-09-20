@@ -42,6 +42,10 @@ const Register = () => {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (!auth || !db) {
+      setError("Firebase is not configured. Please add your Firebase credentials to .env.local file.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
