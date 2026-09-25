@@ -1,3 +1,11 @@
+/**
+ * Main Application Navigation Bar
+ * Handles global navigation, role-based dashboard redirection (NGO vs Hostel),
+ * responsive mobile sidebar toggling, and user authentication state actions.
+ * 
+ * @component
+ * @returns {JSX.Element} The rendered navigation bar
+ */
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../config/firebase';
 import { signOut } from 'firebase/auth';
@@ -8,6 +16,9 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  /**
+   * Dispatches Firebase signOut and transitions client back to login screen
+   */
   const handleLogout = async () => {
     try {
       if (auth) {
@@ -19,6 +30,7 @@ const Navbar = () => {
     }
   };
 
+  // Dynamically resolve target dashboard according to authenticated user's organization type
   const role = userData?.role;
   const dashboardLink = role === 'ngo' ? '/ngo-dashboard' : '/hostel-dashboard';
   const isHostelDashboard = location.pathname.startsWith('/hostel-dashboard');
