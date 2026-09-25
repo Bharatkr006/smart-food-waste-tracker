@@ -1,4 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
+/**
+ * Authentication Context Provider
+ * Manages Firebase authentication state, user profile synchronization,
+ * and authorization status across the application.
+ * 
+ * @module context/AuthContext
+ */
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -6,8 +13,23 @@ import { doc, onSnapshot } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
+/**
+ * Custom hook to consume the current Authentication context.
+ * Provides currentUser, userData profile, loading state, and profile updater.
+ * 
+ * @returns {{
+ *   currentUser: import('firebase/auth').User | null,
+ *   userData: Object | null,
+ *   loading: boolean,
+ *   updateUser: (newData: Object) => Promise<void>
+ * }}
+ */
 export const useAuth = () => useContext(AuthContext);
 
+/**
+ * Root Authentication Provider component wrapping authenticated subtrees.
+ * Listens for auth state transitions and maintains real-time sync with user firestore record.
+ */
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userData, setUserData] = useState(null);

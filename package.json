@@ -1,7 +1,16 @@
 {
   "name": "smart-food-waste-tracker",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Smart Food Waste Tracker & Redistribution Platform for Hostels and NGOs",
+  "keywords": [
+    "food-waste",
+    "sustainability",
+    "esg",
+    "react",
+    "vite",
+    "firebase"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
