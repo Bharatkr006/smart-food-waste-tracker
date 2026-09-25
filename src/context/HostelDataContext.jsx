@@ -1,4 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
+/**
+ * Hostel Data Context Provider
+ * Manages operational state including food surplus listings, waste logs,
+ * targeted reduction actions, real-time Firestore listeners, and derived telemetry.
+ * 
+ * @module context/HostelDataContext
+ */
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { db } from '../config/firebase';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -9,8 +16,14 @@ import { calculateImpactTelemetry, calculateImpactTimeSeries } from '../utils/im
 
 const HostelDataContext = createContext();
 
+/**
+ * Custom hook to access operational hostel listings, waste logs, metrics, and dispatcher methods.
+ */
 export const useHostelData = () => useContext(HostelDataContext);
 
+/**
+ * Provides live synchronization with Firestore collections for the authenticated hostel organization.
+ */
 export const HostelDataProvider = ({ children }) => {
   const { currentUser, userData } = useAuth();
   const [listings, setListings] = useState([]);
