@@ -2,39 +2,52 @@
  * Impact & ESG Sustainability Calculator
  * Computes quantifiable environmental, social, and financial benefits
  * from redistributed surplus food using standard scientific coefficients.
+ * 
+ * @module utils/impactCalculator
  */
 
 import { detectCategoryFromTitle, FOOD_CATEGORIES } from './analyticsEngine';
 
-// Conversion Factors
+/**
+ * Standard environmental and social conversion factors.
+ * Based on published United Nations FAO, US EPA WARM, and climate impact models.
+ */
 export const IMPACT_CONSTANTS = {
-  // Average portion weight in kg (400g per meal portion)
+  /** Average weight per meal portion in kilograms (approx 400 grams) */
   KG_PER_PORTION: 0.4,
   
-  // Standard EPA & FAO factor: ~2.5 kg CO2e greenhouse gas emissions prevented per 1 kg food waste diverted
+  /**
+   * Greenhouse gas mitigation factor:
+   * Diverting 1 kg of prepared food from landfill avoids ~2.5 kg CO2 equivalent emissions.
+   */
   CO2E_KG_PER_KG_FOOD: 2.5,
 
-  // Water footprint equivalent: ~290 liters water saved per kg food saved
+  /** Estimated embedded water footprint saved per kg of food conserved (liters) */
   WATER_LITERS_PER_KG_FOOD: 290,
 
-  // Baseline average financial value per portion in INR (₹)
+  /** Baseline financial valuation per meal portion in INR (₹) */
   DEFAULT_VALUE_PER_PORTION: 28,
 
-  // Trees planted absorption equivalent (~21.7 kg CO2 / tree / year)
+  /** Carbon sequestration rate for 1 mature urban tree per calendar year (kg CO2) */
   KG_CO2_PER_TREE_YEAR: 21.7,
 
-  // Average passenger car km per kg CO2e (~0.24 kg CO2e / km => 4.16 km / kg CO2e)
+  /** Passenger car travel distance equivalent per kg CO2e (~4.16 km/kg CO2e) */
   CAR_KM_PER_KG_CO2E: 4.16,
 
-  // Average 8-minute shower water usage in liters (~65L)
+  /** Average residential shower water consumption equivalent in liters (~65L) */
   LITERS_PER_SHOWER: 65,
 
-  // Smartphones charged per kg CO2e (~8.22g CO2e per charge => ~121 charges / kg)
+  /** Mobile device recharge cycles equivalent per kg CO2e */
   SMARTPHONE_CHARGES_PER_KG_CO2E: 121
 };
 
 /**
- * Calculates comprehensive sustainability impact telemetry
+ * Calculates comprehensive sustainability impact telemetry including meals saved,
+ * greenhouse gas emissions mitigated, water conserved, and social impact metrics.
+ * 
+ * @param {Array<Object>} [listings=[]] - Surpluses posted and picked up via the donation pipeline
+ * @param {Array<Object>} [logs=[]] - Historical waste and diversion logs
+ * @returns {Object} Calculated sustainability indicators and tangible equivalencies
  */
 export function calculateImpactTelemetry(listings = [], logs = []) {
   const pickedUpListings = (listings || []).filter(l => l.status === 'Picked Up');

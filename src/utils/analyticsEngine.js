@@ -2,9 +2,16 @@
  * Analytics Engine for Smart Food Waste Tracker
  * Provides multi-dimensional aggregations, baseline comparisons,
  * funnel computations, and pattern extraction for AI action suggestions.
+ * 
+ * @module utils/analyticsEngine
  */
 
-// Food Category Standard Definitions & Default Estimates
+/**
+ * Standard food category definitions with default economic and environmental cost estimates.
+ * Emission factors derived from FAO / EPA food loss research baselines.
+ * 
+ * @type {Array<{id: string, name: string, avgCostPerKg: number, co2PerKg: number}>}
+ */
 export const FOOD_CATEGORIES = [
   { id: 'grains', name: 'Grains & Rice', avgCostPerKg: 40, co2PerKg: 2.1 },
   { id: 'lentils', name: 'Dal & Lentils', avgCostPerKg: 90, co2PerKg: 1.8 },
@@ -15,6 +22,12 @@ export const FOOD_CATEGORIES = [
   { id: 'other', name: 'Other Prepared Items', avgCostPerKg: 50, co2PerKg: 2.0 }
 ];
 
+/**
+ * Common operational food waste classification types.
+ * Used for root-cause classification and targeted intervention modeling.
+ * 
+ * @type {Array<{id: string, label: string}>}
+ */
 export const WASTE_TYPES = [
   { id: 'overproduction', label: 'Overproduction / Excess Prep' },
   { id: 'plate_waste', label: 'Plate Waste (Left on Plates)' },
@@ -23,10 +36,21 @@ export const WASTE_TYPES = [
   { id: 'other', label: 'Other' }
 ];
 
+/**
+ * Standard daily meal service intervals recognized by the tracker.
+ * @type {string[]}
+ */
 export const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 
 /**
- * Filter logs based on date range criteria
+ * Filter food waste logs based on date range criteria.
+ * Supports standard presets ('today', '7days', '30days', 'this_month') as well as custom date bounds.
+ * 
+ * @param {Array<Object>} [logs=[]] - Collection of food log objects
+ * @param {string} [range='30days'] - Range identifier preset
+ * @param {string|number|Date|null} [customStart=null] - Optional start date for custom range
+ * @param {string|number|Date|null} [customEnd=null] - Optional end date for custom range
+ * @returns {Array<Object>} Filtered log entries
  */
 export function filterLogsByDate(logs = [], range = '30days', customStart = null, customEnd = null) {
   const now = new Date();
