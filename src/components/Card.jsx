@@ -1,3 +1,20 @@
+/**
+ * Reusable Card Container Component
+ * Renders structured content with optional headers, status badges, timers, and meta annotations.
+ * 
+ * @component
+ * @param {Object} props
+ * @param {string} props.title - Card header title text
+ * @param {string} [props.meta] - Secondary explanatory text displayed under title
+ * @param {React.ReactNode} props.children - Inner card content
+ * @param {string} [props.badge] - Right-hand side status badge label
+ * @param {'success'|'warning'|'danger'|'info'} [props.badgeType='success'] - Badge color variation
+ * @param {string} [props.topBadge] - Top-left category tag
+ * @param {'success'|'warning'|'danger'|'info'} [props.topBadgeType='success'] - Top badge color variation
+ * @param {string} [props.timer] - Remaining countdown or expiration timestamp text
+ * @param {'success'|'warning'|'danger'} [props.timerType] - Timer urgency color coding
+ * @returns {JSX.Element}
+ */
 const Card = ({ title, meta, children, badge, badgeType, topBadge, topBadgeType, timer, timerType }) => {
   return (
     <div className="card" style={{ position: 'relative' }}>

@@ -4,7 +4,14 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
+/**
+ * ESLint Flat Configuration
+ * Configures code quality rules for React 19, JSX syntax, and browser environments.
+ * 
+ * @see https://eslint.org/docs/latest/use/configure/configuration-files-new
+ */
 export default defineConfig([
+  // Exclude build artifacts from static analysis
   globalIgnores(['dist']),
   {
     files: ['**/*.{js,jsx}'],
